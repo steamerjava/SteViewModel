@@ -107,6 +107,10 @@ public final class ViewModelEditorOverlay {
     private int scaledWidth;
     private int scaledHeight;
 
+    /** Temporary self-test: opens Configs and clicks the first row. */
+    private static final boolean DEBUG_CLICKS = System.getenv("VMM_DEBUG") != null;
+    private int debugFrames;
+
     private int panelX;
     private int panelY;
     private int panelW;
@@ -219,6 +223,9 @@ public final class ViewModelEditorOverlay {
         if (this.manager.isEditorActive()) {
             this.drawHandHighlight(context);
         }
+        if (DEBUG_CLICKS) {
+            this.debugTick();
+        }
         if (this.openAmount > 0.02F) {
             this.drawPanel(context, mouseX, mouseY);
         }
@@ -228,10 +235,10 @@ public final class ViewModelEditorOverlay {
         Palette p = this.palette();
 
         float open = easeOutCubic(MathHelper.clamp(this.openAmount, 0.0F, 1.0F));
+        // WexSide fades the panel in over a dimmed background.
+        context.fill(0, 0, this.scaledWidth, this.scaledHeight,
+            withAlpha(0xFF000000, Math.round(0x30 * open)));
         if (open < 0.999F) {
-            // WexSide fades panels in over a dimmed background.
-            context.fill(0, 0, this.scaledWidth, this.scaledHeight,
-                withAlpha(0xFF000000, Math.round(0x40 * open)));
             context.getMatrices().push();
             float scale = 0.94F + 0.06F * open;
             float centerX = this.panelX + this.panelW / 2.0F;
@@ -706,7 +713,11 @@ public final class ViewModelEditorOverlay {
             ViewModelConfigEntry active = this.manager.activeConfig();
             String config = this.fit(active.name, Math.max(40, this.contentW - 170));
             int width = this.width(config);
-            this.addLabel(config, this.contentX + this.contentW - 22 - width, titleY, p.textMuted(), false);
+            // The active config name doubles as a shortcut to the Configs tab.
+            this.addButton(Action.OPEN_CONFIGS, config,
+                this.contentX + this.contentW - 22 - width - 6,
+                this.panelY + (this.headerH - 12) / 2, width + 12, 14,
+                false, true, VARIANT_GHOST, 0);
         }
 
         int closeSize = this.compact ? 14 : 16;
@@ -853,17 +864,19 @@ public final class ViewModelEditorOverlay {
         int labelW = this.compact ? 60 : 74;
         int controlX = this.contentX + labelW;
         int controlW = this.contentW - labelW;
-        int half = (controlW - gap) / 2;
+        int third = (controlW - gap * 2) / 3;
         this.addLabel(this.tr("Theme", "Тема"), this.contentX, y + (this.buttonH - 8) / 2, p.textSecondary(), false);
+        boolean glass = ViewModelConfig.THEME_GLASS.equals(this.manager.theme());
         boolean dark = ViewModelConfig.THEME_DARK.equals(this.manager.theme());
-        this.addButton(Action.THEME_DARK, this.tr("DARK", "ТЁМНАЯ"), controlX, y, half, this.buttonH, dark, true, 0, 0);
-        this.addButton(Action.THEME_LIGHT, this.tr("LIGHT", "СВЕТЛАЯ"), controlX + half + gap, y,
-            controlX + controlW - (controlX + half + gap), this.buttonH, !dark, true, 0, 0);
+        this.addButton(Action.THEME_DARK, this.tr("DARK", "ТЁМНАЯ"), controlX, y, third, this.buttonH, dark && !glass, true, 0, 0);
+        this.addButton(Action.THEME_LIGHT, this.tr("LIGHT", "СВЕТЛАЯ"), controlX + third + gap, y, third, this.buttonH, !dark && !glass, true, 0, 0);
+        this.addButton(Action.THEME_GLASS, "GLASS", controlX + (third + gap) * 2, y, controlX + controlW - (controlX + (third + gap) * 2), this.buttonH, glass, true, 0, 0);
         y += this.buttonH + sectionGap;
 
         this.addSection(this.tr("LANGUAGE", "ЯЗЫК"), this.contentX, y);
         y += sectionH;
         boolean russian = ViewModelConfig.LANGUAGE_RU.equals(this.manager.language());
+        int half = (controlW - gap) / 2;
         this.addButton(Action.LANG_EN, "ENGLISH", controlX, y, half, this.buttonH, !russian, true, 0, 0);
         this.addButton(Action.LANG_RU, "РУССКИЙ", controlX + half + gap, y,
             controlX + controlW - (controlX + half + gap), this.buttonH, russian, true, 0, 0);
@@ -1056,6 +1069,31 @@ public final class ViewModelEditorOverlay {
         return true;
     }
 
+    private void debugTick() {
+        this.debugFrames++;
+        if (this.debugFrames == 30) {
+            this.switchTab(Tab.CONFIGS);
+            ViewModelMOD.LOGGER.info("[vmdtest] switched to CONFIGS");
+        } else if (this.debugFrames == 60) {
+            this.layout();
+            ViewModelMOD.LOGGER.info("[vmdtest] rows={} list={},{} {}x{} panel={},{} {}x{}",
+                this.configRows.size(), this.configListX, this.configListY,
+                this.configListW, this.configListH, this.panelX, this.panelY,
+                this.panelW, this.panelH);
+            if (this.configRows.isEmpty()) {
+                ViewModelMOD.LOGGER.info("[vmdtest] NO ROWS tab={}", this.tab);
+            } else {
+                ConfigRow row = this.configRows.get(0);
+                ViewModelMOD.LOGGER.info("[vmdtest] clicking row {} at {},{} {}x{}",
+                    row.index, row.x + row.w / 2, row.y + row.h / 2, row.w, row.h);
+                this.handlePanelClick(row.x + row.w / 2.0, row.y + row.h / 2.0);
+                ViewModelMOD.LOGGER.info("[vmdtest] after click: active={} name={} rhScale={}",
+                    this.manager.activeConfigIndex(), this.manager.activeConfig().name,
+                    this.manager.activeConfig().rightHand.scale);
+            }
+        }
+    }
+
     private void handlePanelClick(double mouseX, double mouseY) {
         // The header drags the whole panel. The close button lives there too,
         // so buttons win over the drag area.
@@ -1234,6 +1272,7 @@ public final class ViewModelEditorOverlay {
                     this.setStatus(this.tr("Could not open browser", "Не удалось открыть браузер"));
                 }
             }
+            case OPEN_CONFIGS -> this.switchTab(Tab.CONFIGS);
             case HIDE_UI -> this.togglePanel();
         }
     }
@@ -1806,6 +1845,7 @@ public final class ViewModelEditorOverlay {
         RESET_TARGET, RESET_ALL, LOAD_DEFAULTS,
         CONFIG_RENAME, CONFIG_NEW, CONFIG_SAVE, CONFIG_DELETE,
         THEME_DARK, THEME_LIGHT, LANG_EN, LANG_RU, OPEN_GITHUB,
+        OPEN_CONFIGS,
         HIDE_UI
     }
 
