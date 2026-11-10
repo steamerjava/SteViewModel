@@ -244,9 +244,13 @@ public final class ViewModelManager {
     }
 
     public void setTheme(String theme) {
-        this.config.theme = ViewModelConfig.THEME_LIGHT.equals(theme)
-            ? ViewModelConfig.THEME_LIGHT
-            : ViewModelConfig.THEME_DARK;
+        if (ViewModelConfig.THEME_GLASS.equalsIgnoreCase(theme)) {
+            this.config.theme = ViewModelConfig.THEME_GLASS;
+        } else if (ViewModelConfig.THEME_LIGHT.equalsIgnoreCase(theme)) {
+            this.config.theme = ViewModelConfig.THEME_LIGHT;
+        } else {
+            this.config.theme = ViewModelConfig.THEME_DARK;
+        }
         this.markDirty();
     }
 

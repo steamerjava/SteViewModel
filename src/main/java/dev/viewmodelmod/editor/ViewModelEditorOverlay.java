@@ -248,12 +248,27 @@ public final class ViewModelEditorOverlay {
             context.getMatrices().translate(-centerX, -centerY, 0.0F);
         }
 
-        fillRounded(context, this.panelX + 2, this.panelY + 4, this.panelW, this.panelH, PANEL_RADIUS, 0x44000000);
+        // Multi-level soft atmospheric drop shadow for depth
+        fillRounded(context, this.panelX - 4, this.panelY - 2, this.panelW + 8, this.panelH + 12, PANEL_RADIUS + 4, 0x10000000);
+        fillRounded(context, this.panelX - 2, this.panelY - 1, this.panelW + 4, this.panelH + 8, PANEL_RADIUS + 2, 0x1A000000);
+        fillRounded(context, this.panelX, this.panelY + 2, this.panelW, this.panelH + 4, PANEL_RADIUS + 1, 0x33000000);
+
         fillRounded(context, this.panelX, this.panelY, this.panelW, this.panelH, PANEL_RADIUS, p.borderSoft());
         fillRounded(context, this.panelX + 1, this.panelY + 1, this.panelW - 2, this.panelH - 2,
             PANEL_RADIUS - 1, p.backgroundPrimary());
         fillRoundedCorners(context, this.panelX + 1, this.panelY + 1, this.sidebarW, this.panelH - 2,
             PANEL_RADIUS - 1, 0, 0, PANEL_RADIUS - 1, p.backgroundSecondary());
+
+        // Frosted glass refraction sheen across upper area in GLASS theme
+        if (p.isGlass()) {
+            context.fill(this.panelX + 2, this.panelY + 2,
+                this.panelX + this.panelW - 2, this.panelY + (this.panelH / 3),
+                0x0BFFFFFF);
+        }
+        // Specular highlight rim line on the top edge
+        context.fill(this.panelX + PANEL_RADIUS, this.panelY + 1,
+            this.panelX + this.panelW - PANEL_RADIUS, this.panelY + 2,
+            withAlpha(p.borderStrong(), p.isGlass() ? 0x60 : 0x35));
 
         int dividerX = this.panelX + this.sidebarW;
         int dividerY = this.panelY + this.headerH;
@@ -261,11 +276,18 @@ public final class ViewModelEditorOverlay {
         context.fill(dividerX, dividerY, this.panelX + this.panelW, dividerY + 1, p.borderPrimary());
         context.fill(this.panelX + 8, dividerY - 6, this.panelX + this.sidebarW - 8, dividerY - 5, withAlpha(p.accent(), 0x66));
 
+        // Subtle minimalist drag grip in header
+        int gripX = dividerX + (this.contentW - 20) / 2;
+        int gripY = this.panelY + (this.headerH - 2) / 2;
+        context.fill(gripX, gripY, gripX + 4, gripY + 2, withAlpha(p.textMuted(), 0x35));
+        context.fill(gripX + 7, gripY, gripX + 11, gripY + 2, withAlpha(p.textMuted(), 0x35));
+        context.fill(gripX + 14, gripY, gripX + 18, gripY + 2, withAlpha(p.textMuted(), 0x35));
+
         this.drawNav(context, mouseX, mouseY, p);
 
         for (Label label : this.labels) {
             if (label.section) {
-                context.fill(label.x, label.y + 1, label.x + 2, label.y + 8, p.accent());
+                fillRounded(context, label.x, label.y + 1, 2, 7, 1, p.accent());
                 this.drawText(context, label.text, label.x + 7, label.y, label.color);
             } else {
                 this.drawText(context, label.text, label.x, label.y, label.color);
@@ -302,11 +324,11 @@ public final class ViewModelEditorOverlay {
             if (active > 0.01F) {
                 drawRoundedBox(context, entry.x, entry.y, entry.w, entry.h,
                     NAV_RADIUS,
-                    mix(p.backgroundSecondary(), p.borderSubtle(), active),
-                    withAlpha(p.borderPrimary(), Math.round(0xFF * active)));
+                    mix(mix(p.backgroundSecondary(), p.borderSubtle(), active), p.accentTint(), active * 0.70F),
+                    mix(p.borderPrimary(), p.accent(), active * 0.50F));
                 int barHeight = Math.round((entry.h - 8) * active);
                 int barY = entry.y + (entry.h - barHeight) / 2;
-                context.fill(entry.x + 2, barY, entry.x + 3, barY + barHeight,
+                fillRounded(context, entry.x + 3, barY, 3, barHeight, 1,
                     withAlpha(p.accent(), Math.round(0xFF * active)));
             } else if (hover > 0.01F) {
                 drawRoundedBox(context, entry.x, entry.y, entry.w, entry.h, NAV_RADIUS,
@@ -316,11 +338,11 @@ public final class ViewModelEditorOverlay {
 
             int iconColor = mix(mix(p.textMuted(), p.textSecondary(), hover), p.accent(),
                 Math.max(active, hover * 0.25F));
-            drawNavIcon(context, entry.tab, entry.x + 7, entry.y + (entry.h - 8) / 2, iconColor);
+            drawNavIcon(context, entry.tab, entry.x + 8, entry.y + (entry.h - 8) / 2, iconColor);
 
             int textColor = mix(mix(p.textSecondary(), p.textPrimary(), hover), p.textPrimary(), active);
             this.drawText(context, this.navLabel(entry.tab),
-                entry.x + 19, entry.y + (entry.h - 8) / 2, textColor);
+                entry.x + 21, entry.y + (entry.h - 8) / 2, textColor);
         }
     }
 
@@ -368,14 +390,18 @@ public final class ViewModelEditorOverlay {
             fill = mix(p.controlFill(), p.danger(), 0.16F + 0.08F * hover);
             border = mix(p.borderSoft(), p.danger(), 0.65F + 0.35F * hover);
             textColor = p.textPrimary();
+        } else if (button.action == Action.HIDE_UI) {
+            fill = mix(p.backgroundPrimary(), withAlpha(p.danger(), 0x30), hover);
+            border = mix(p.backgroundPrimary(), p.danger(), hover * 0.7F);
+            textColor = mix(p.textMuted(), p.textPrimary(), hover);
         } else if (button.variant == VARIANT_GHOST) {
             fill = mix(p.backgroundPrimary(), p.backgroundHover(), hover);
             border = mix(p.backgroundPrimary(), p.borderSoft(), hover);
             textColor = mix(p.textSecondary(), p.textPrimary(), hover);
         } else if (button.active) {
-            fill = mix(p.controlFill(), p.accent(), 0.22F + 0.06F * hover);
+            fill = mix(p.controlFill(), p.accent(), 0.26F + 0.08F * hover);
             fill = mix(fill, p.accent(), flash * 0.35F);
-            border = mix(mix(p.accent(), p.borderStrong(), 0.25F), p.textPrimary(), flash * 0.55F);
+            border = mix(mix(p.accent(), p.borderStrong(), 0.22F), p.textPrimary(), flash * 0.55F);
             textColor = p.textPrimary();
         } else {
             fill = mix(p.controlFill(), p.backgroundHover(), hover);
@@ -385,6 +411,11 @@ public final class ViewModelEditorOverlay {
         }
 
         drawRoundedBox(context, button.x, button.y, button.w, button.h, 5, fill, border);
+
+        if (button.active && button.w > 12 && button.h > 8) {
+            context.fill(button.x + 3, button.y + 1, button.x + button.w - 3, button.y + 2,
+                withAlpha(0xFFFFFF, 0x22));
+        }
 
         if (button.action == Action.EDIT_HEX) {
             HighlightSettings settings = this.manager.highlight();
@@ -417,7 +448,8 @@ public final class ViewModelEditorOverlay {
             && mouseY >= slider.y && mouseY < slider.y + slider.h;
         boolean hoveredTrack = mouseX >= slider.trackX && mouseX < slider.trackX + slider.trackW
             && mouseY >= slider.y && mouseY < slider.y + slider.h;
-        float hover = this.animate(slider.field, hoveredTrack || hoveredValue || this.sliderDrag == slider.field);
+        boolean dragging = this.sliderDrag == slider.field;
+        float hover = this.animate(slider.field, hoveredTrack || hoveredValue || dragging);
 
         this.drawText(context, slider.label, slider.x, centerY - 4,
             mix(p.textSecondary(), p.textPrimary(), hover));
@@ -430,11 +462,15 @@ public final class ViewModelEditorOverlay {
         }
 
         int knobX = slider.trackX + filled;
-        fillRounded(context, knobX - 5, centerY - 5, 10, 10, 5, withAlpha(p.accent(), 0x66));
+        int glowSize = dragging ? 12 : Math.round(8 + 3 * hover);
+        fillRounded(context, knobX - glowSize / 2, centerY - glowSize / 2, glowSize, glowSize, glowSize / 2,
+            withAlpha(p.accent(), dragging ? 0x88 : Math.round(0x35 + 0x30 * hover)));
         fillRounded(context, knobX - 2, centerY - 2, 5, 5, 3, p.textPrimary());
 
+        int fieldBorder = editingThis ? p.accent() : mix(p.borderSoft(), p.accent(), hover);
+        int fieldFill = editingThis ? mix(p.formatFieldFill(), p.accentTint(), 0.5F) : p.formatFieldFill();
         drawRoundedBox(context, slider.valueX, slider.y + 1, slider.valueW, slider.h - 2, 4,
-            p.formatFieldFill(), mix(p.borderSoft(), p.accent(), hover));
+            fieldFill, fieldBorder);
 
         String text = editingThis ? this.editing.display() : this.formatValue(slider.field, value);
         this.drawCenteredText(context, text, slider.valueX, slider.y + 1, slider.valueW, slider.h - 2,
@@ -451,26 +487,32 @@ public final class ViewModelEditorOverlay {
         boolean hovered = this.panelVisible && row.contains(mouseX, mouseY);
         float hover = this.animate(entry, hovered);
 
-        int fill = selected ? p.accentTint() : mix(p.backgroundPrimary(), p.backgroundHover(), hover);
-        int border = selected ? p.accent() : mix(p.borderSoft(), p.borderStrong(), hover);
+        int fill = selected
+            ? mix(p.accentTint(), p.controlFill(), 0.35F)
+            : mix(p.backgroundPrimary(), p.backgroundHover(), hover);
+        int border = selected
+            ? mix(p.accent(), p.textPrimary(), 0.20F)
+            : mix(p.borderSoft(), p.borderStrong(), hover);
         drawRoundedBox(context, row.x, row.y, row.w, row.h, NAV_RADIUS, fill, border);
 
         if (selected) {
-            context.fill(row.x + 3, row.y + 4, row.x + 5, row.y + row.h - 4, p.accent());
+            fillRounded(context, row.x + 3, row.y + 4, 3, row.h - 8, 1, p.accent());
         }
 
-        String name = this.fit(entry.name, row.w - 70);
+        String name = this.fit(entry.name, row.w - 74);
         this.drawText(context, name, row.x + 10, row.y + 4,
             selected ? p.textPrimary() : mix(p.textSecondary(), p.textPrimary(), hover));
         this.drawText(context, this.formatDate(entry.createdAt), row.x + 10,
             row.y + row.h - 10, p.textMuted());
 
         if (selected) {
-            int activeWidth = this.width("ACTIVE");
-            int activeX = row.x + row.w - activeWidth - 8;
-            if (activeX > row.x + 10 + this.width(name) + 4) {
-                this.drawText(context, "ACTIVE",
-                    activeX, row.y + (row.h - 8) / 2, p.accent());
+            int badgeW = this.width("ACTIVE") + 10;
+            int badgeH = 12;
+            int badgeX = row.x + row.w - badgeW - 8;
+            int badgeY = row.y + (row.h - badgeH) / 2;
+            if (badgeX > row.x + 10 + this.width(name) + 6) {
+                drawRoundedBox(context, badgeX, badgeY, badgeW, badgeH, 3, p.accentTint(), p.accent());
+                this.drawCenteredText(context, "ACTIVE", badgeX, badgeY, badgeW, badgeH, p.accent());
             }
         } else if (isEntryEmpty(entry)) {
             // An all-default config looks like the mod "did nothing" when it is
@@ -572,7 +614,7 @@ public final class ViewModelEditorOverlay {
         int labelX = MathHelper.clamp(Math.round(bounds.centerX()) - labelWidth / 2, minX, maxX);
         int labelY = Math.max(2, Math.round(bounds.minY) - 15);
         drawRoundedBox(context, labelX, labelY, labelWidth, 13, 4,
-            0xE6101216,
+            withAlpha(this.palette().backgroundPrimary(), 0xEA),
             (Math.max(48, Math.round(alpha * 0.55F)) << 24) | rgb);
         this.drawText(context, label, labelX + 6, labelY + 3, lineColor);
     }
@@ -721,7 +763,7 @@ public final class ViewModelEditorOverlay {
         }
 
         int closeSize = this.compact ? 14 : 16;
-        this.addButton(Action.HIDE_UI, "x",
+        this.addButton(Action.HIDE_UI, "✕",
             this.panelX + this.panelW - 8 - closeSize,
             this.panelY + (this.headerH - closeSize) / 2,
             closeSize, closeSize, false, true, VARIANT_GHOST, 0);
@@ -870,7 +912,7 @@ public final class ViewModelEditorOverlay {
         boolean dark = ViewModelConfig.THEME_DARK.equals(this.manager.theme());
         this.addButton(Action.THEME_DARK, this.tr("DARK", "ТЁМНАЯ"), controlX, y, third, this.buttonH, dark && !glass, true, 0, 0);
         this.addButton(Action.THEME_LIGHT, this.tr("LIGHT", "СВЕТЛАЯ"), controlX + third + gap, y, third, this.buttonH, !dark && !glass, true, 0, 0);
-        this.addButton(Action.THEME_GLASS, "GLASS", controlX + (third + gap) * 2, y, controlX + controlW - (controlX + (third + gap) * 2), this.buttonH, glass, true, 0, 0);
+        this.addButton(Action.THEME_GLASS, this.tr("GLASS", "СТЕКЛО"), controlX + (third + gap) * 2, y, controlX + controlW - (controlX + (third + gap) * 2), this.buttonH, glass, true, 0, 0);
         y += this.buttonH + sectionGap;
 
         this.addSection(this.tr("LANGUAGE", "ЯЗЫК"), this.contentX, y);
@@ -1171,7 +1213,7 @@ public final class ViewModelEditorOverlay {
         this.perform(button.action, button.data);
         this.flash(button.action.name() + ":" + button.data);
         switch (button.action) {
-            case GLOW_TOGGLE, THEME_DARK, THEME_LIGHT, LANG_EN, LANG_RU ->
+            case GLOW_TOGGLE, THEME_DARK, THEME_LIGHT, THEME_GLASS, LANG_EN, LANG_RU ->
                 this.playToast(wasActive ? 0.92F : 1.22F);
             case CONFIG_DELETE -> this.playToastOut(0.9F);
             case CONFIG_NEW -> this.playToast(1.28F);
@@ -1262,6 +1304,7 @@ public final class ViewModelEditorOverlay {
             }
             case THEME_DARK -> this.manager.setTheme(ViewModelConfig.THEME_DARK);
             case THEME_LIGHT -> this.manager.setTheme(ViewModelConfig.THEME_LIGHT);
+            case THEME_GLASS -> this.manager.setTheme(ViewModelConfig.THEME_GLASS);
             case LANG_EN -> this.manager.setLanguage(ViewModelConfig.LANGUAGE_EN);
             case LANG_RU -> this.manager.setLanguage(ViewModelConfig.LANGUAGE_RU);
             case OPEN_GITHUB -> {
@@ -1612,7 +1655,14 @@ public final class ViewModelEditorOverlay {
     }
 
     private Palette palette() {
-        return ViewModelConfig.THEME_LIGHT.equals(this.manager.theme()) ? Palette.LIGHT : Palette.DARK;
+        String theme = this.manager.theme();
+        if (ViewModelConfig.THEME_GLASS.equalsIgnoreCase(theme)) {
+            return Palette.GLASS;
+        }
+        if (ViewModelConfig.THEME_LIGHT.equalsIgnoreCase(theme)) {
+            return Palette.LIGHT;
+        }
+        return Palette.DARK;
     }
 
     private String tr(String english, String russian) {
@@ -1844,7 +1894,7 @@ public final class ViewModelEditorOverlay {
         GLOW_TOGGLE, EDIT_HEX,
         RESET_TARGET, RESET_ALL, LOAD_DEFAULTS,
         CONFIG_RENAME, CONFIG_NEW, CONFIG_SAVE, CONFIG_DELETE,
-        THEME_DARK, THEME_LIGHT, LANG_EN, LANG_RU, OPEN_GITHUB,
+        THEME_DARK, THEME_LIGHT, THEME_GLASS, LANG_EN, LANG_RU, OPEN_GITHUB,
         OPEN_CONFIGS,
         HIDE_UI
     }
@@ -1965,10 +2015,10 @@ public final class ViewModelEditorOverlay {
     }
 
     /**
-     * WexSide palette, decoded from BuiltInThemes.themePalette (dark) and
-     * themePalette2 (light).
+     * Color themes: DARK (sleek obsidian), LIGHT (clean modern), and GLASS (frosted acrylic).
      */
     private record Palette(
+        boolean isGlass,
         int backgroundPrimary,
         int backgroundSecondary,
         int backgroundControl,
@@ -1989,17 +2039,27 @@ public final class ViewModelEditorOverlay {
         int separator
     ) {
         private static final Palette DARK = new Palette(
-            0xFF101216, 0xFF161920, 0xFF1C2029, 0xFF232833, 0xFF2A303D,
-            0xFF303744, 0xFF394251, 0xFF252B35, 0xFF465160, 0xFF1B1F27,
-            0xFFF4F6FA, 0xFFB8C0CC, 0xFF858F9E, 0xFF505967,
-            0xFF7C5CFF, 0x337C5CFF, 0xFFFF5D73, 0xFF343B47
+            false,
+            0xFF101217, 0xFF161920, 0xFF1D222B, 0xFF242A36, 0xFF2A313E,
+            0xFF323B49, 0xFF3B4657, 0xFF262D38, 0xFF48566B, 0xFF191D25,
+            0xFFF8FAFC, 0xFFCBD5E1, 0xFF8895A7, 0xFF505A69,
+            0xFF7052FF, 0x337052FF, 0xFFFF536B, 0xFF333B48
         );
 
         private static final Palette LIGHT = new Palette(
-            0xFFF5F6F8, 0xFFFFFFFF, 0xFFE9ECF1, 0xFFE1E5EB, 0xFFD8DDE5,
-            0xFFD0D6DF, 0xFFBCC4D0, 0xFFDDE2E9, 0xFFADB7C5, 0xFFEDF0F4,
-            0xFF171A20, 0xFF414854, 0xFF737D8B, 0xFFADB4BE,
-            0xFF6C4DFF, 0x336C4DFF, 0xFFE2475F, 0xFFD5DAE2
+            false,
+            0xFFF6F8FB, 0xFFFFFFFF, 0xFFE9EDF3, 0xFFE2E7EF, 0xFFD9E0EA,
+            0xFFD2D9E3, 0xFFBFC7D5, 0xFFDFE4EC, 0xFFAEB8C8, 0xFFEEF2F7,
+            0xFF161A22, 0xFF434A56, 0xFF727D8D, 0xFFAAB2BE,
+            0xFF6045F0, 0x336045F0, 0xFFE53E57, 0xFFD7DEE7
+        );
+
+        private static final Palette GLASS = new Palette(
+            true,
+            0xB80B0F17, 0x80131924, 0x551E273A, 0x882C3852, 0x44222C40,
+            0x337B92B5, 0x25FFFFFF, 0x1F7B92B5, 0x55FFFFFF, 0x55161F2E,
+            0xFFFFFFFF, 0xFFCBD5E1, 0xFF8FA1B8, 0xFF5B6B80,
+            0xFF818CF8, 0x40818CF8, 0xFFFB7185, 0x287B92B5
         );
     }
 }

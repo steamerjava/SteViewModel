@@ -9,6 +9,7 @@ import java.util.List;
 public class ViewModelConfig {
     public static final String THEME_DARK = "dark";
     public static final String THEME_LIGHT = "light";
+    public static final String THEME_GLASS = "glass";
     public static final String LANGUAGE_EN = "en";
     public static final String LANGUAGE_RU = "ru";
 
@@ -78,7 +79,13 @@ public class ViewModelConfig {
         }
         this.dragSensitivity = Math.max(0.25F, Math.min(3.0F, this.dragSensitivity));
 
-        this.theme = THEME_LIGHT.equalsIgnoreCase(this.theme) ? THEME_LIGHT : THEME_DARK;
+        if (THEME_GLASS.equalsIgnoreCase(this.theme)) {
+            this.theme = THEME_GLASS;
+        } else if (THEME_LIGHT.equalsIgnoreCase(this.theme)) {
+            this.theme = THEME_LIGHT;
+        } else {
+            this.theme = THEME_DARK;
+        }
         this.language = LANGUAGE_RU.equalsIgnoreCase(this.language) ? LANGUAGE_RU : LANGUAGE_EN;
         this.panelOffsetX = clamp(this.panelOffsetX, -4000.0F, 4000.0F);
         this.panelOffsetY = clamp(this.panelOffsetY, -4000.0F, 4000.0F);
