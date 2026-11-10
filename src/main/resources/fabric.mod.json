@@ -1,0 +1,28 @@
+{
+  "schemaVersion": 1,
+  "id": "viewmodelmod",
+  "version": "${version}",
+  "name": "ViewModelMOD",
+  "description": "A client-side first-person ViewModel editor: move, rotate, scale, recolor and save individual arm and item transforms.",
+  "authors": [
+    "ViewModelMOD"
+  ],
+  "contact": {},
+  "license": "MIT",
+  "icon": "assets/viewmodelmod/icon.png",
+  "environment": "client",
+  "entrypoints": {
+    "client": [
+      "dev.viewmodelmod.ViewModelMOD"
+    ]
+  },
+  "mixins": [
+    "viewmodelmod.mixins.json"
+  ],
+  "depends": {
+    "fabricloader": ">=0.16.0",
+    "minecraft": "~1.21.1",
+    "java": ">=21",
+    "fabric-api": "*"
+  }
+}
